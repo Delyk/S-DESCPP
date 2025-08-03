@@ -8,7 +8,26 @@
 #define BLOCK_LEN 8
 #define ROUND_COUNT 2
 
+namespace sdes_cypher {
+
 class sdes {
+  template <size_t N = 8> class bits {
+    bool storage[N];
+
+  public:
+    bits();
+    bits(bool[]);
+    bits(unsigned);
+    bits(char);
+    bool split(unsigned, unsigned);
+    void unite(bool[], bool[]);
+    void mixing(unsigned[]);
+    unsigned to_unsigned() const;
+    bool &operator[](size_t);
+    bits &operator<<=(size_t) noexcept;
+    bool &operator^=(const bits &) noexcept;
+  };
+
   std::bitset<KEY_LEN> cypher_key; //Ключ шифрования
   unsigned key_straight_P_block[KEY_LEN]{
       2, 4, 1, 6, 3, 9, 0, 8, 7, 5}; //Маска для прямого P-блока ключа
@@ -71,26 +90,4 @@ public:
   void print(std::bitset<BLOCK_LEN>);
 };
 
-namespace sdes_ops {
-template <size_t N>
-std::bitset<N> operator>>(
-    const std::bitset<N> &bits,
-    size_t pos); //Перегруженный оператор кольцевого побитового сдвига вправо
-
-template <size_t N>
-std::bitset<N> operator<<(
-    const std::bitset<N> &bits,
-    size_t pos); //Перегруженный оператор кольцевого побитового сдвига влево
-
-template <size_t N>
-std::bitset<N> &
-operator>>=(std::bitset<N> &bits,
-            size_t pos); //Перегруженный оператор кольцевого побитового сдвига
-                         //вправо c присваиванием
-
-template <size_t N>
-std::bitset<N> &
-operator<<=(std::bitset<N> &bits,
-            size_t pos); //Перегруженный оператор кольцевого побитового сдвига
-                         //влево с присваиванием
-} // namespace sdes_ops
+} // namespace sdes_cypher

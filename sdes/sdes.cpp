@@ -6,6 +6,55 @@
 #include <ostream>
 #include <random>
 #include <vector>
+using namespace sdes_cypher;
+
+//Внутренний класс bits
+//Конструкторы
+template <size_t N> sdes::bits<N>::bits() {
+  for (size_t i = 0; i < N; i++) {
+    storage[i] = 0;
+  }
+}
+
+template <size_t N> sdes::bits<N>::bits(bool bitnum[]) {
+  for (size_t i = 0; i < N; i++) {
+    storage[i] = bitnum[i];
+  }
+}
+
+template <size_t N> sdes::bits<N>::bits(unsigned number) {
+  for (size_t i = N - 1; i >= 0; i--) {
+    storage[i] = ((number << i) & 1);
+  }
+}
+
+template <size_t N> sdes::bits<N>::bits(char number) {
+  for (size_t i = N - 1; i >= 0; i--) {
+    storage[i] = ((number << i) & 1);
+  }
+}
+
+//Преобразовать обратно в число
+template <size_t N> unsigned sdes::bits<N>::to_unsigned() const {
+  unsigned number = 0;
+  for (size_t i = 0; i < N; i++) {
+    if (storage[i]) {
+      number |= (1 << i);
+    }
+  }
+  return number;
+}
+
+//Перемешать массив по маске
+template <size_t N> void sdes::bits<N>::mixing(unsigned mask[]) {
+  bool old_storage[N];
+  for (size_t i = 0; i < N; i++) {
+    old_storage[i] = storage[i];
+  }
+  for (size_t i = 0; i < N; i++) {
+    storage[i] = old_storage[mask[i]];
+  }
+}
 
 // Инвертировать расположение битов
 template <unsigned long num>
@@ -257,8 +306,8 @@ std::bitset<BLOCK_LEN / 2> sdes::sdes_function(std::bitset<BLOCK_LEN / 2> text,
       split(extended_text); //Разделяем текст на блоки пополам
   std::bitset<BLOCK_LEN / 2> result =
       S_blocks(splited_blocks); //Находим числа по S-блокам
-  std::cout << "Text from S-blocks: " << result.to_string() << std::endl;
-  result = straight_P_block(result); //Прямой S-блок
+  std::cout << "Text from S-blocks: " << reverse(result) << std::endl;
+  result = straight_P_block(reverse(result)); //Прямой S-блок
 
   return result;
 }
@@ -293,6 +342,6 @@ void sdes::print(std::bitset<BLOCK_LEN> text) {
   std::cout << "\nText after first round: " << first_round << std::endl;
   std::bitset<BLOCK_LEN> second_key = key_gen();
   std::cout << "Second Key: " << second_key << std::endl;
-  std::bitset<BLOCK_LEN> second_round = round(first_round, second_key);
+  std::bitset<BLOCK_LEN> second_round = round(reverse(first_round), second_key);
   std::cout << "\nText after second round: " << second_round << std::endl;
 }
