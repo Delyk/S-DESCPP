@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <random>
+#include <string>
 #include <vector>
 #define KEY_LEN 10
 #define BLOCK_LEN 8
@@ -39,6 +40,8 @@ class sdes {
   };
 
   bits cypher_key; // Ключ шифрования
+  bits first_key;
+  bits second_key;
   std::vector<unsigned> key_straight_P_block{
       2, 4, 1, 6, 3, 9, 0, 8, 7, 5}; // Маска для прямого P-блока ключа
   std::vector<unsigned> key_compressed_P_block{
@@ -69,8 +72,12 @@ class sdes {
 public:
   sdes();
   sdes(std::initializer_list<bool>);
+  sdes(uint16_t);
 
   void print(std::initializer_list<bool>);
+  char encrypt(char);
+  char decrypt(char);
+  uint16_t get_key() const;
 };
 
 } // namespace sdes_cypher

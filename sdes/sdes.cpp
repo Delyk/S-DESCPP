@@ -20,7 +20,11 @@ sdes::bits::bits(bits &&right) noexcept {
   right.storage.clear();
 }
 
-sdes::bits::bits(std::initializer_list<bool> bit_num) { storage = bit_num; }
+sdes::bits::bits(std::initializer_list<bool> bit_num) {
+  for (auto it = bit_num.begin(); it != bit_num.end(); it++) {
+    storage.push_back(*it);
+  }
+}
 
 sdes::bits::bits(std::vector<bool> bool_vector) { storage = bool_vector; }
 
@@ -47,12 +51,13 @@ std::string sdes::bits::to_string() const {
 // Преобразовать обратно в число
 unsigned sdes::bits::to_unsigned() const {
   unsigned number = 0;
+  int power = 0;
   if (storage.empty()) {
     return number;
   }
-  for (int i = storage.size() - 1; i >= 0; i--) {
+  for (int i = storage.size() - 1; i >= 0; i--, power++) {
     if (storage[i]) {
-      number |= (1 << i);
+      number += std::pow(2, power);
     }
   }
   return number;
@@ -91,17 +96,19 @@ std::vector<bool>::reference sdes::bits::operator[](size_t pos) {
   return storage.at(pos);
 }
 
-sdes::bits &sdes::bits::operator<<=(size_t) noexcept {
-  bool first_bit = *storage.begin();
-  for (size_t i = 0; i < storage.size(); i++) {
-    if (storage[i]) {
-      storage[i] = 0;
-      if (i) {
-        storage[i - 1] = 1;
+sdes::bits &sdes::bits::operator<<=(size_t count) noexcept {
+  for (size_t i = 0; i < count; i++) {
+    bool first_bit = *storage.begin();
+    for (size_t i = 0; i < storage.size(); i++) {
+      if (storage[i]) {
+        storage[i] = 0;
+        if (i) {
+          storage[i - 1] = 1;
+        }
       }
     }
+    *(storage.end() - 1) = first_bit;
   }
-  *(storage.end() - 1) = first_bit;
   return *this;
 }
 
@@ -134,12 +141,12 @@ sdes::bits sdes::S_blocks(std::vector<sdes::bits> blocks) {
   bits united_nums;
   for (size_t i = 0; i < blocks.size(); i++) {
     bits current_half_block = blocks[i];
-    unsigned row = bits({current_half_block[0], current_half_block[3]})
-                       .to_unsigned(); // Вырезаем первый и последние биты,
+    bits left{current_half_block[0], current_half_block[3]};
+    bits right{current_half_block[1], current_half_block[2]};
+    unsigned row = left.to_unsigned(); // Вырезаем первый и последние биты,
                                        // преобразуем в число от 0 до 3
-    unsigned column = bits({current_half_block[1], current_half_block[2]})
-                          .to_unsigned(); // Вырезаем первый и последние биты,
-                                          // преобразуем в число от 0 до 3
+    unsigned column = right.to_unsigned(); // Вырезаем первый и последние биты,
+                                           // преобразуем в число от 0 до 3
     unsigned num =
         S_blocks_tables[i][row]
                        [column]; // Преобразованные числа указывают
@@ -150,11 +157,26 @@ sdes::bits sdes::S_blocks(std::vector<sdes::bits> blocks) {
 }
 
 // Конструкторы
-sdes::sdes() : current_round(1) { cypher_key = get_random_key(); }
+sdes::sdes() : current_round(1) {
+  cypher_key = get_random_key();
+  first_key = key_gen();
+  second_key = key_gen();
+}
 
 sdes::sdes(std::initializer_list<bool> key) : current_round(1) {
   cypher_key = key;
   cypher_key.mixing(key_straight_P_block);
+  first_key = key_gen();
+  second_key = key_gen();
+}
+
+sdes::sdes(uint16_t number) {
+  for (int i = 0; i < 10; ++i) {
+    bool bit = (number >> i) & 1;
+    cypher_key.push(bit);
+  }
+  first_key = key_gen();
+  second_key = key_gen();
 }
 
 // Получаем случайный ключ из генератора случайных чисел
@@ -170,6 +192,8 @@ sdes::bits sdes::get_random_key() {
   key.mixing(key_straight_P_block);
   return key;
 }
+
+uint16_t sdes::get_key() const { return cypher_key.to_unsigned(); }
 
 // Генерируем ключ для нового раунда
 sdes::bits sdes::key_gen() {
@@ -217,6 +241,7 @@ sdes::bits sdes::round(bits text, bits key) {
                     // функцией
   std::cout << "XOR with first half: " << left.to_string() << std::endl;
   right.unite(std::move(left));
+  std::cout << "Text after second round: " << right.to_string() << std::endl;
   return right;
 }
 
@@ -224,7 +249,6 @@ void sdes::print(std::initializer_list<bool> text) {
   std::vector<bool> text_vec(text);
   bits text_bin(text_vec);
   std::cout << "Key: " << cypher_key.to_string() << std::endl;
-  bits first_key = key_gen();
   std::cout << "First Key: " << first_key.to_string() << std::endl;
   std::cout << "Text: " << text_bin.to_string() << std::endl;
   text_bin.mixing(initial_P_block);
@@ -232,9 +256,32 @@ void sdes::print(std::initializer_list<bool> text) {
   bits first_round = round(text_bin, first_key);
   std::cout << "\nText after first round: " << first_round.to_string()
             << std::endl;
-  bits second_key = key_gen();
   std::cout << "Second Key: " << second_key.to_string() << std::endl;
   bits second_round = round(first_round, second_key);
-  std::cout << "\nText after second round: " << second_round.to_string()
-            << std::endl;
+  second_round.mixing(final_P_block);
+  std::cout << "\nFinal permutation: " << second_round.to_string() << std::endl;
+}
+
+char sdes::encrypt(char number) {
+  bits text(number);
+  //Начальная перестановка
+  text.mixing(initial_P_block);
+  //Раунды
+  text = round(text, first_key);
+  text = round(text, second_key);
+  //Конечная перестановка
+  text.mixing(final_P_block);
+  return text.to_unsigned();
+}
+
+char sdes::decrypt(char number) {
+  bits text(number);
+  //Начальная перестановка
+  text.mixing(initial_P_block);
+  //Раунды
+  text = round(text, second_key);
+  text = round(text, first_key);
+  //Конечная перестановка
+  text.mixing(final_P_block);
+  return text.to_unsigned();
 }
