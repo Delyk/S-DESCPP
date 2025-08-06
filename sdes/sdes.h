@@ -31,6 +31,7 @@ class sdes {
     void push(bool);
     std::string to_string() const;
     size_t size() const;
+    bool empty() const;
     std::vector<bool>::reference operator[](size_t);
     bits &operator<<=(size_t) noexcept;
     bits &operator^=(const bits &) noexcept;
@@ -75,6 +76,7 @@ public:
   sdes(uint16_t);
 
   void print(std::initializer_list<bool>);
+  void print_rev(std::initializer_list<bool> text);
   char encrypt(char);
   char decrypt(char);
   uint16_t get_key() const;

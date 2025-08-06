@@ -48,6 +48,9 @@ std::string sdes::bits::to_string() const {
   return text;
 }
 
+//Проверка на пустоту
+bool sdes::bits::empty() const { return storage.empty(); }
+
 // Преобразовать обратно в число
 unsigned sdes::bits::to_unsigned() const {
   unsigned number = 0;
@@ -157,17 +160,11 @@ sdes::bits sdes::S_blocks(std::vector<sdes::bits> blocks) {
 }
 
 // Конструкторы
-sdes::sdes() : current_round(1) {
-  cypher_key = get_random_key();
-  first_key = key_gen();
-  second_key = key_gen();
-}
+sdes::sdes() : current_round(1) { cypher_key = get_random_key(); }
 
 sdes::sdes(std::initializer_list<bool> key) : current_round(1) {
   cypher_key = key;
   cypher_key.mixing(key_straight_P_block);
-  first_key = key_gen();
-  second_key = key_gen();
 }
 
 sdes::sdes(uint16_t number) {
@@ -175,8 +172,6 @@ sdes::sdes(uint16_t number) {
     bool bit = (number >> i) & 1;
     cypher_key.push(bit);
   }
-  first_key = key_gen();
-  second_key = key_gen();
 }
 
 // Получаем случайный ключ из генератора случайных чисел
@@ -207,9 +202,6 @@ sdes::bits sdes::key_gen() {
   left.unite(std::move(right));
   left.mixing(key_compressed_P_block);
   // Объединение и сжатие ключей
-  if (current_round < ROUND_COUNT) {
-    current_round++;
-  }
   return left;
 }
 
@@ -240,15 +232,26 @@ sdes::bits sdes::round(bits text, bits key) {
   left ^= XOR_func; // Искл. ИЛИ левой половины с правой S-DES
                     // функцией
   std::cout << "XOR with first half: " << left.to_string() << std::endl;
-  right.unite(std::move(left));
-  std::cout << "Text after second round: " << right.to_string() << std::endl;
-  return right;
+  bits result;
+  if (current_round > 1) {
+    left.unite(std::move(right));
+    result = left;
+  } else {
+    right.unite(std::move(left));
+    result = right;
+  }
+  std::cout << "Text after round: " << result.to_string() << std::endl;
+  if (current_round < ROUND_COUNT) {
+    current_round++;
+  }
+  return result;
 }
 
 void sdes::print(std::initializer_list<bool> text) {
   std::vector<bool> text_vec(text);
   bits text_bin(text_vec);
   std::cout << "Key: " << cypher_key.to_string() << std::endl;
+  first_key = key_gen();
   std::cout << "First Key: " << first_key.to_string() << std::endl;
   std::cout << "Text: " << text_bin.to_string() << std::endl;
   text_bin.mixing(initial_P_block);
@@ -256,18 +259,40 @@ void sdes::print(std::initializer_list<bool> text) {
   bits first_round = round(text_bin, first_key);
   std::cout << "\nText after first round: " << first_round.to_string()
             << std::endl;
+  second_key = key_gen();
   std::cout << "Second Key: " << second_key.to_string() << std::endl;
   bits second_round = round(first_round, second_key);
   second_round.mixing(final_P_block);
   std::cout << "\nFinal permutation: " << second_round.to_string() << std::endl;
 }
 
+void sdes::print_rev(std::initializer_list<bool> text) {
+  current_round = 1;
+  std::vector<bool> text_vec(text);
+  bits text_bin(text_vec);
+  std::cout << "Key: " << cypher_key.to_string() << std::endl;
+  std::cout << "First Key: " << second_key.to_string() << std::endl;
+  std::cout << "Text: " << text_bin.to_string() << std::endl;
+  text_bin.mixing(initial_P_block);
+  std::cout << "Initial permutation: " << text_bin.to_string() << std::endl;
+  bits first_round = round(text_bin, second_key);
+  std::cout << "\nText after first round: " << first_round.to_string()
+            << std::endl;
+  std::cout << "Second Key: " << first_key.to_string() << std::endl;
+  bits second_round = round(first_round, first_key);
+  second_round.mixing(final_P_block);
+  std::cout << "\nFinal permutation: " << second_round.to_string() << std::endl;
+}
+
 char sdes::encrypt(char number) {
+  current_round = 1;
   bits text(number);
   //Начальная перестановка
   text.mixing(initial_P_block);
   //Раунды
+  first_key = key_gen();
   text = round(text, first_key);
+  second_key = key_gen();
   text = round(text, second_key);
   //Конечная перестановка
   text.mixing(final_P_block);
@@ -275,6 +300,16 @@ char sdes::encrypt(char number) {
 }
 
 char sdes::decrypt(char number) {
+  current_round = 1;
+  if (first_key.empty()) {
+    first_key = key_gen();
+  }
+  if (second_key.empty()) {
+    current_round = 2;
+    second_key = key_gen();
+  }
+  current_round = 1;
+
   bits text(number);
   //Начальная перестановка
   text.mixing(initial_P_block);
