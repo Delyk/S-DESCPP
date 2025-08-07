@@ -1,9 +1,11 @@
 #include "sdes.h"
+#include <algorithm>
 #include <cstddef>
 #include <initializer_list>
 #include <iostream>
 #include <ostream>
 #include <random>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -29,10 +31,15 @@ sdes::bits::bits(std::initializer_list<bool> bit_num) {
 sdes::bits::bits(std::vector<bool> bool_vector) { storage = bool_vector; }
 
 sdes::bits::bits(uint8_t number) {
-  for (int i = 0; i < 7; ++i) {
-    bool bit = (number >> i) & 1;
-    storage.push_back(bit);
+  // for (int i = 0; i < 7; ++i) {
+  //   bool bit = (number >> i) & 1;
+  //   storage.push_back(bit);
+  // }
+  while (number > 0) {
+    storage.push_back(number % 2);
+    number /= 2;
   }
+  std::reverse(storage.begin(), storage.end());
 }
 
 // Получить размер
@@ -81,8 +88,25 @@ void sdes::bits::push(bool bit) { storage.push_back(bit); }
 // Вырезать биты из массива
 sdes::bits sdes::bits::cut(unsigned start, unsigned end) {
   bits cutted;
-  for (size_t i = start; i <= end; i++) {
-    cutted.push(storage.at(i));
+  if ((storage.size() - 1 < end)) {
+    while (storage.size() - 1 < end) {
+      storage.push_back(0);
+    }
+    std::reverse(storage.begin(), storage.end());
+  }
+  if (start == end) {
+    return bits({this[start]});
+  } else if (start < end) {
+    for (auto i = storage.begin() + start; i <= storage.begin() + end; i++) {
+      try {
+        cutted.push(*i);
+      } catch (std::out_of_range &e) {
+        std::cout << e.what() << std::endl;
+        return cutted;
+      }
+    }
+  } else if (start > end) {
+    throw std::range_error("Start bigger then end");
   }
   return cutted;
 }
@@ -138,27 +162,6 @@ sdes::bits &sdes::bits::operator=(bits &&right) noexcept {
 //Деструктор
 sdes::bits::~bits() { storage.clear(); }
 
-// S-блоки
-sdes::bits sdes::S_blocks(std::vector<sdes::bits> blocks) {
-  bits result;
-  bits united_nums;
-  for (size_t i = 0; i < blocks.size(); i++) {
-    bits current_half_block = blocks[i];
-    bits left{current_half_block[0], current_half_block[3]};
-    bits right{current_half_block[1], current_half_block[2]};
-    unsigned row = left.to_unsigned(); // Вырезаем первый и последние биты,
-                                       // преобразуем в число от 0 до 3
-    unsigned column = right.to_unsigned(); // Вырезаем первый и последние биты,
-                                           // преобразуем в число от 0 до 3
-    unsigned num =
-        S_blocks_tables[i][row]
-                       [column]; // Преобразованные числа указывают
-                                 // координаты числа из S-блока от 0 до 3
-    united_nums.unite(bits(num).cut(0, 1));
-  }
-  return united_nums;
-}
-
 // Конструкторы
 sdes::sdes() : current_round(1) { cypher_key = get_random_key(); }
 
@@ -191,8 +194,8 @@ sdes::bits sdes::get_random_key() {
 uint16_t sdes::get_key() const { return cypher_key.to_unsigned(); }
 
 // Генерируем ключ для нового раунда
-sdes::bits sdes::key_gen() {
-  unsigned count = progression(current_round);
+sdes::bits sdes::key_gen(unsigned count) {
+  count = progression(count);
   // Разделяем ключи
   bits left = cypher_key.cut(0, 4);
   bits right = cypher_key.cut(5, 9);
@@ -203,6 +206,29 @@ sdes::bits sdes::key_gen() {
   left.mixing(key_compressed_P_block);
   // Объединение и сжатие ключей
   return left;
+}
+
+// S-блоки
+sdes::bits sdes::S_blocks(std::vector<sdes::bits> blocks) {
+  bits result;
+  bits united_nums;
+  for (size_t i = 0; i < blocks.size(); i++) {
+    bits current_half_block = blocks[i];
+    bits left{current_half_block[0], current_half_block[3]};
+    bits right{current_half_block[1], current_half_block[2]};
+    unsigned row = left.to_unsigned(); // Вырезаем первый и последние биты,
+                                       // преобразуем в число от 0 до 3
+    unsigned column = right.to_unsigned(); // Вырезаем первый и последние биты,
+                                           // преобразуем в число от 0 до 3
+    unsigned num =
+        S_blocks_tables[i][row]
+                       [column]; // Преобразованные числа указывают
+                                 // координаты числа из S-блока от 0 до 3
+    bits bin_num(num);
+    bin_num = bin_num.cut(0, 1);
+    united_nums.unite(std::move(bin_num));
+  }
+  return united_nums;
 }
 
 // Функция S-DES
@@ -240,7 +266,6 @@ sdes::bits sdes::round(bits text, bits key) {
     right.unite(std::move(left));
     result = right;
   }
-  std::cout << "Text after round: " << result.to_string() << std::endl;
   if (current_round < ROUND_COUNT) {
     current_round++;
   }
@@ -251,7 +276,7 @@ void sdes::print(std::initializer_list<bool> text) {
   std::vector<bool> text_vec(text);
   bits text_bin(text_vec);
   std::cout << "Key: " << cypher_key.to_string() << std::endl;
-  first_key = key_gen();
+  first_key = key_gen(current_round);
   std::cout << "First Key: " << first_key.to_string() << std::endl;
   std::cout << "Text: " << text_bin.to_string() << std::endl;
   text_bin.mixing(initial_P_block);
@@ -259,9 +284,11 @@ void sdes::print(std::initializer_list<bool> text) {
   bits first_round = round(text_bin, first_key);
   std::cout << "\nText after first round: " << first_round.to_string()
             << std::endl;
-  second_key = key_gen();
+  second_key = key_gen(current_round);
   std::cout << "Second Key: " << second_key.to_string() << std::endl;
   bits second_round = round(first_round, second_key);
+  std::cout << "Text after second round: " << second_round.to_string()
+            << std::endl;
   second_round.mixing(final_P_block);
   std::cout << "\nFinal permutation: " << second_round.to_string() << std::endl;
 }
@@ -290,9 +317,9 @@ char sdes::encrypt(char number) {
   //Начальная перестановка
   text.mixing(initial_P_block);
   //Раунды
-  first_key = key_gen();
+  first_key = key_gen(current_round);
   text = round(text, first_key);
-  second_key = key_gen();
+  second_key = key_gen(current_round);
   text = round(text, second_key);
   //Конечная перестановка
   text.mixing(final_P_block);
@@ -300,21 +327,13 @@ char sdes::encrypt(char number) {
 }
 
 char sdes::decrypt(char number) {
-  current_round = 1;
-  if (first_key.empty()) {
-    first_key = key_gen();
-  }
-  if (second_key.empty()) {
-    current_round = 2;
-    second_key = key_gen();
-  }
-  current_round = 1;
-
   bits text(number);
   //Начальная перестановка
   text.mixing(initial_P_block);
   //Раунды
+  second_key = key_gen(ROUND_COUNT);
   text = round(text, second_key);
+  first_key = key_gen(1);
   text = round(text, first_key);
   //Конечная перестановка
   text.mixing(final_P_block);
