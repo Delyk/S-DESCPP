@@ -1,5 +1,6 @@
 #include "sdes.h"
 #include <algorithm>
+#include <fstream>
 #include <initializer_list>
 #include <iostream>
 #include <ostream>
@@ -168,11 +169,14 @@ sdes::sdes(std::initializer_list<bool> key) : current_round(1) {
 }
 
 sdes::sdes(uint16_t number) {
+  key = number;
   for (int i = 0; i < 10; ++i) {
     bool bit = (number >> i) & 1;
     cypher_key.push(bit);
   }
 }
+
+uint16_t sdes::getKey() const { return key; }
 
 // Получаем случайный ключ из генератора случайных чисел
 sdes::bits sdes::get_random_key() {
@@ -336,4 +340,47 @@ char sdes::decrypt(char number) {
   //Конечная перестановка
   text.mixing(final_P_block);
   return text.to_unsigned();
+}
+
+//Зашифровать текст в файле
+void sdes::cipher_textfile(std::string filename) {
+  std::ofstream file(filename);
+  if (!file) {
+    std::cerr << "Error open file " << filename << std::endl;
+  }
+}
+
+//Расшифровать текст в файле
+void sdes::decipher_textfile(std::string filename) {
+  std::ofstream file(filename);
+  if (!file) {
+    std::cerr << "Error open file " << filename << std::endl;
+  }
+}
+
+//Зашифровать бинарный файл
+void cipher_binfile(std::string filename) {
+  std::ofstream file(filename);
+  if (!file) {
+    std::cerr << "Error open file " << filename << std::endl;
+  }
+}
+//Расшифровать бинарный файл
+void decipher_binfile(std::string filename) {
+  std::ofstream file(filename);
+  if (!file) {
+    std::cerr << "Error open file " << filename << std::endl;
+  }
+}
+
+//Вывод содержимого файла
+void print_textfile(std::string filename) {
+  std::ifstream file(filename);
+  if (!file) {
+    std::cerr << "Error open file " << filename << std::endl;
+  }
+  char ch;
+  while (file.get(ch)) {
+    std::cout << ch;
+  }
 }

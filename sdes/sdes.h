@@ -1,6 +1,7 @@
 #pragma once
 #include <bitset>
 #include <cstdint>
+#include <fstream>
 #include <initializer_list>
 #include <random>
 #include <string>
@@ -38,6 +39,7 @@ class sdes {
     ~bits();
   };
 
+  uint16_t key;
   bits cypher_key; // Ключ шифрования
   bits first_key;
   bits second_key;
@@ -72,11 +74,20 @@ public:
   sdes();
   sdes(std::initializer_list<bool>);
   sdes(uint16_t);
+  uint16_t getKey() const;
 
   void print_crypt(std::initializer_list<bool>);
   void print_decrypt(std::initializer_list<bool>);
   char encrypt(char);
   char decrypt(char);
+
+  void cipher_textfile(std::string);
+  void decipher_textfile(std::string);
+
+  void cipher_binfile(std::string);
+  void decipher_binfile(std::string);
+
+  void print_textfile(std::string);
 };
 
 } // namespace sdes_cypher
