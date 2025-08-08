@@ -39,6 +39,9 @@ sdes::bits::bits(uint8_t number) {
     storage.push_back(number % 2);
     number /= 2;
   }
+  while (storage.size() < 8) {
+    storage.push_back(0);
+  }
   std::reverse(storage.begin(), storage.end());
 }
 
@@ -225,7 +228,7 @@ sdes::bits sdes::S_blocks(std::vector<sdes::bits> blocks) {
                        [column]; // Преобразованные числа указывают
                                  // координаты числа из S-блока от 0 до 3
     bits bin_num(num);
-    bin_num = bin_num.cut(0, 1);
+    bin_num = bin_num.cut(6, 7);
     united_nums.unite(std::move(bin_num));
   }
   return united_nums;
@@ -233,15 +236,15 @@ sdes::bits sdes::S_blocks(std::vector<sdes::bits> blocks) {
 
 // Функция S-DES
 sdes::bits sdes::sdes_function(bits text, bits key) {
-  std::cout << "Half text: " << text.to_string() << std::endl;
+  // std::cout << "Half text: " << text.to_string() << std::endl;
   text.mixing(P_block_expansion);
-  std::cout << "Text expansion: " << text.to_string() << std::endl;
+  // std::cout << "Text expansion: " << text.to_string() << std::endl;
   text ^= key; // XOR с ключом
-  std::cout << "Text XOR key: " << text.to_string() << std::endl;
+  // std::cout << "Text XOR key: " << text.to_string() << std::endl;
   std::vector<bits> splited_blocks{
       text.cut(0, 3), text.cut(4, 7)}; // Разделяем текст на блоки пополам
   bits result = S_blocks(splited_blocks); // Находим числа по S-блокам
-  std::cout << "Text from S-blocks: " << result.to_string() << std::endl;
+  // std::cout << "Text from S-blocks: " << result.to_string() << std::endl;
   result.mixing(P_block_straight); // Прямой S-блок
 
   return result;
@@ -254,10 +257,10 @@ sdes::bits sdes::round(bits text, bits key) {
   bits XOR_func =
       sdes_function(right,
                     key); // Применить S-DES функцию к правой половине
-  std::cout << "Straight P-block: " << XOR_func.to_string() << std::endl;
+  // std::cout << "Straight P-block: " << XOR_func.to_string() << std::endl;
   left ^= XOR_func; // Искл. ИЛИ левой половины с правой S-DES
                     // функцией
-  std::cout << "XOR with first half: " << left.to_string() << std::endl;
+  // std::cout << "XOR with first half: " << left.to_string() << std::endl;
   bits result;
   if (current_round > 1) {
     left.unite(std::move(right));
@@ -334,7 +337,10 @@ char sdes::decrypt(char number) {
   second_key = key_gen(ROUND_COUNT);
   text = round(text, second_key);
   first_key = key_gen(1);
-  text = round(text, first_key);
+  bits left = text.cut(0, 3);
+  bits right = text.cut(4, 7);
+  right.unite(std::move(left));
+  text = round(right, first_key);
   //Конечная перестановка
   text.mixing(final_P_block);
   return text.to_unsigned();
