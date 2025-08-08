@@ -1,7 +1,5 @@
 #pragma once
 #include <bitset>
-#include <csetjmp>
-#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <random>
@@ -75,11 +73,10 @@ public:
   sdes(std::initializer_list<bool>);
   sdes(uint16_t);
 
-  void print(std::initializer_list<bool>);
-  void print_rev(std::initializer_list<bool> text);
+  void print_crypt(std::initializer_list<bool>);
+  void print_decrypt(std::initializer_list<bool>);
   char encrypt(char);
   char decrypt(char);
-  uint16_t get_key() const;
 };
 
 } // namespace sdes_cypher

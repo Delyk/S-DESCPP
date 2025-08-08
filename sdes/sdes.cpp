@@ -1,13 +1,11 @@
 #include "sdes.h"
 #include <algorithm>
-#include <cstddef>
 #include <initializer_list>
 #include <iostream>
 #include <ostream>
 #include <random>
 #include <stdexcept>
 #include <string>
-#include <utility>
 #include <vector>
 using namespace sdes_cypher;
 
@@ -31,10 +29,6 @@ sdes::bits::bits(std::initializer_list<bool> bit_num) {
 sdes::bits::bits(std::vector<bool> bool_vector) { storage = bool_vector; }
 
 sdes::bits::bits(uint8_t number) {
-  // for (int i = 0; i < 7; ++i) {
-  //   bool bit = (number >> i) & 1;
-  //   storage.push_back(bit);
-  // }
   while (number > 0) {
     storage.push_back(number % 2);
     number /= 2;
@@ -194,8 +188,6 @@ sdes::bits sdes::get_random_key() {
   return key;
 }
 
-uint16_t sdes::get_key() const { return cypher_key.to_unsigned(); }
-
 // Генерируем ключ для нового раунда
 sdes::bits sdes::key_gen(unsigned count) {
   count = progression(count);
@@ -275,7 +267,7 @@ sdes::bits sdes::round(bits text, bits key) {
   return result;
 }
 
-void sdes::print(std::initializer_list<bool> text) {
+void sdes::print_crypt(std::initializer_list<bool> text) {
   std::vector<bool> text_vec(text);
   bits text_bin(text_vec);
   std::cout << "Key: " << cypher_key.to_string() << std::endl;
@@ -296,7 +288,7 @@ void sdes::print(std::initializer_list<bool> text) {
   std::cout << "\nFinal permutation: " << second_round.to_string() << std::endl;
 }
 
-void sdes::print_rev(std::initializer_list<bool> text) {
+void sdes::print_decrypt(std::initializer_list<bool> text) {
   current_round = 1;
   std::vector<bool> text_vec(text);
   bits text_bin(text_vec);
