@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <fstream>
 #include <initializer_list>
+#include <ios>
 #include <iostream>
 #include <ostream>
 #include <random>
@@ -53,7 +54,7 @@ std::string sdes::bits::to_string() const {
   return text;
 }
 
-//Проверка на пустоту
+// Проверка на пустоту
 bool sdes::bits::empty() const { return storage.empty(); }
 
 // Преобразовать обратно в число
@@ -157,11 +158,14 @@ sdes::bits &sdes::bits::operator=(bits &&right) noexcept {
   return *this;
 }
 
-//Деструктор
+// Деструктор
 sdes::bits::~bits() { storage.clear(); }
 
 // Конструкторы
-sdes::sdes() : current_round(1) { cypher_key = get_random_key(); }
+sdes::sdes() : current_round(1) {
+  cypher_key = get_random_key();
+  key = cypher_key.to_unsigned();
+}
 
 sdes::sdes(std::initializer_list<bool> key) : current_round(1) {
   cypher_key = key;
@@ -180,8 +184,8 @@ uint16_t sdes::getKey() const { return key; }
 
 // Получаем случайный ключ из генератора случайных чисел
 sdes::bits sdes::get_random_key() {
-  std::random_device rd;  // Устройство случайности
-  std::mt19937 gen(rd()); // Генератор
+  std::random_device rd;                      // Устройство случайности
+  std::mt19937 gen(rd());                     // Генератор
   std::uniform_int_distribution<> dist(0, 1); // Диапазон распределения
   bits key;
 
@@ -215,8 +219,8 @@ sdes::bits sdes::S_blocks(std::vector<sdes::bits> blocks) {
     bits current_half_block = blocks[i];
     bits left{current_half_block[0], current_half_block[3]};
     bits right{current_half_block[1], current_half_block[2]};
-    unsigned row = left.to_unsigned(); // Вырезаем первый и последние биты,
-                                       // преобразуем в число от 0 до 3
+    unsigned row = left.to_unsigned();     // Вырезаем первый и последние биты,
+                                           // преобразуем в число от 0 до 3
     unsigned column = right.to_unsigned(); // Вырезаем первый и последние биты,
                                            // преобразуем в число от 0 до 3
     unsigned num =
@@ -238,7 +242,7 @@ sdes::bits sdes::sdes_function(bits text, bits key) {
   text ^= key; // XOR с ключом
   // std::cout << "Text XOR key: " << text.to_string() << std::endl;
   std::vector<bits> splited_blocks{
-      text.cut(0, 3), text.cut(4, 7)}; // Разделяем текст на блоки пополам
+      text.cut(0, 3), text.cut(4, 7)};    // Разделяем текст на блоки пополам
   bits result = S_blocks(splited_blocks); // Находим числа по S-блокам
   // std::cout << "Text from S-blocks: " << result.to_string() << std::endl;
   result.mixing(P_block_straight); // Прямой S-блок
@@ -313,23 +317,23 @@ void sdes::print_decrypt(std::initializer_list<bool> text) {
 char sdes::encrypt(char number) {
   current_round = 1;
   bits text(number);
-  //Начальная перестановка
+  // Начальная перестановка
   text.mixing(initial_P_block);
-  //Раунды
+  // Раунды
   first_key = key_gen(current_round);
   text = round(text, first_key);
   second_key = key_gen(current_round);
   text = round(text, second_key);
-  //Конечная перестановка
+  // Конечная перестановка
   text.mixing(final_P_block);
   return text.to_unsigned();
 }
 
 char sdes::decrypt(char number) {
   bits text(number);
-  //Начальная перестановка
+  // Начальная перестановка
   text.mixing(initial_P_block);
-  //Раунды
+  // Раунды
   second_key = key_gen(ROUND_COUNT);
   text = round(text, second_key);
   first_key = key_gen(1);
@@ -337,50 +341,96 @@ char sdes::decrypt(char number) {
   bits right = text.cut(4, 7);
   right.unite(std::move(left));
   text = round(right, first_key);
-  //Конечная перестановка
+  // Конечная перестановка
   text.mixing(final_P_block);
   return text.to_unsigned();
 }
 
-//Зашифровать текст в файле
-void sdes::cipher_textfile(std::string filename) {
-  std::ofstream file(filename);
-  if (!file) {
-    std::cerr << "Error open file " << filename << std::endl;
+// Зашифровать текст в файле
+void sdes::cypher_textfile(std::string filename) {
+  std::ifstream file(filename);
+  std::string filename_cypher("_" + filename);
+  std::ofstream file_cypher(filename_cypher);
+  if (!file || !file_cypher) {
+    std::cerr << "Error open file " << filename << " or cannot create file\n";
+    return;
   }
+  char ch;
+  while (file.get(ch)) {
+    file_cypher << encrypt(ch);
+  }
+  file.close();
+  file_cypher.close();
 }
 
-//Расшифровать текст в файле
-void sdes::decipher_textfile(std::string filename) {
-  std::ofstream file(filename);
-  if (!file) {
-    std::cerr << "Error open file " << filename << std::endl;
+// Расшифровать текст в файле
+void sdes::decypher_textfile(std::string filename) {
+  std::ifstream file(filename);
+  std::string filename_decypher(filename + "_");
+  std::ofstream file_decypher(filename_decypher);
+  if (!file || !file_decypher) {
+    std::cerr << "Error open file " << filename << " or cannot create file\n";
+    return;
   }
+  char ch;
+  while (file.get(ch)) {
+    file_decypher << decrypt(ch);
+  }
+  file.close();
+  file_decypher.close();
 }
 
-//Зашифровать бинарный файл
-void cipher_binfile(std::string filename) {
-  std::ofstream file(filename);
-  if (!file) {
-    std::cerr << "Error open file " << filename << std::endl;
+// Зашифровать бинарный файл
+void sdes::cypher_binfile(std::string filename) {
+  std::ifstream file(filename, std::ios::binary);
+  std::string filename_cypher("_" + filename);
+  std::ofstream file_cypher(filename_cypher, std::ios::binary);
+  if (!file || !file_cypher) {
+    std::cerr << "Error open file " << filename << " or cannot create file\n";
+    return;
   }
+  unsigned char ch;
+  while (file.read(reinterpret_cast<char *>(&ch), sizeof(unsigned char))) {
+    // Предполагаем encrypt принимает char, преобразуем
+    char encrypted_char = encrypt(static_cast<char>(ch));
+    // В записи приводим обратно к unsigned char для записи как байта
+    unsigned char encrypted_byte = static_cast<unsigned char>(encrypted_char);
+    file_cypher.write(reinterpret_cast<char *>(&encrypted_byte),
+                      sizeof(unsigned char));
+  }
+  file.close();
+  file_cypher.close();
 }
-//Расшифровать бинарный файл
-void decipher_binfile(std::string filename) {
-  std::ofstream file(filename);
-  if (!file) {
-    std::cerr << "Error open file " << filename << std::endl;
+// Расшифровать бинарный файл
+void sdes::decypher_binfile(std::string filename) {
+  std::ifstream file(filename, std::ios::binary);
+  std::string filename_decypher(filename + "_");
+  std::ofstream file_decypher(filename_decypher, std::ios::binary);
+  if (!file || !file_decypher) {
+    std::cerr << "Error open file " << filename << " or cannot create file\n";
+    return;
   }
+  unsigned char ch;
+  while (file.read(reinterpret_cast<char *>(&ch), sizeof(unsigned char))) {
+    char decrypted_char = decrypt(static_cast<char>(ch));
+    unsigned char decrypted_byte = static_cast<unsigned char>(decrypted_char);
+    file_decypher.write(reinterpret_cast<char *>(&decrypted_byte),
+                        sizeof(unsigned char));
+  }
+  file.close();
+  file_decypher.close();
 }
 
-//Вывод содержимого файла
-void print_textfile(std::string filename) {
+// Вывод содержимого файла
+void sdes::print_textfile(std::string filename) {
   std::ifstream file(filename);
   if (!file) {
     std::cerr << "Error open file " << filename << std::endl;
   }
   char ch;
+  std::cout << "Text: \n";
   while (file.get(ch)) {
     std::cout << ch;
   }
+  std::cout << std::endl;
 }

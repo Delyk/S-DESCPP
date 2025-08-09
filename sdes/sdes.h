@@ -60,7 +60,7 @@ class sdes {
   // S-блоки
   unsigned current_round; // Количество прошедших раундов
 
-  bits get_random_key(); // Сгенерировать случайный ключ
+  bits get_random_key();  // Сгенерировать случайный ключ
   bits key_gen(unsigned); // Генерация ключа раунда
   bits round(bits,
              bits); // Раунд шифрования
@@ -81,11 +81,11 @@ public:
   char encrypt(char);
   char decrypt(char);
 
-  void cipher_textfile(std::string);
-  void decipher_textfile(std::string);
+  void cypher_textfile(std::string);
+  void decypher_textfile(std::string);
 
-  void cipher_binfile(std::string);
-  void decipher_binfile(std::string);
+  void cypher_binfile(std::string);
+  void decypher_binfile(std::string);
 
   void print_textfile(std::string);
 };
