@@ -60,7 +60,7 @@ class sdes {
   // S-блоки
   unsigned current_round; // Количество прошедших раундов
 
-  bits get_random_key();  // Сгенерировать случайный ключ
+  bits get_random_key(); // Сгенерировать случайный ключ
   bits key_gen(unsigned); // Генерация ключа раунда
   bits round(bits,
              bits); // Раунд шифрования

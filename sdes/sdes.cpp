@@ -168,6 +168,9 @@ sdes::sdes() : current_round(1) {
 }
 
 sdes::sdes(std::initializer_list<bool> key) : current_round(1) {
+  if (key.size() < 10) {
+    throw std::range_error("Слишком маленький ключ");
+  }
   cypher_key = key;
   cypher_key.mixing(key_straight_P_block);
 }
@@ -184,8 +187,8 @@ uint16_t sdes::getKey() const { return key; }
 
 // Получаем случайный ключ из генератора случайных чисел
 sdes::bits sdes::get_random_key() {
-  std::random_device rd;                      // Устройство случайности
-  std::mt19937 gen(rd());                     // Генератор
+  std::random_device rd;  // Устройство случайности
+  std::mt19937 gen(rd()); // Генератор
   std::uniform_int_distribution<> dist(0, 1); // Диапазон распределения
   bits key;
 
@@ -219,8 +222,8 @@ sdes::bits sdes::S_blocks(std::vector<sdes::bits> blocks) {
     bits current_half_block = blocks[i];
     bits left{current_half_block[0], current_half_block[3]};
     bits right{current_half_block[1], current_half_block[2]};
-    unsigned row = left.to_unsigned();     // Вырезаем первый и последние биты,
-                                           // преобразуем в число от 0 до 3
+    unsigned row = left.to_unsigned(); // Вырезаем первый и последние биты,
+                                       // преобразуем в число от 0 до 3
     unsigned column = right.to_unsigned(); // Вырезаем первый и последние биты,
                                            // преобразуем в число от 0 до 3
     unsigned num =
@@ -242,7 +245,7 @@ sdes::bits sdes::sdes_function(bits text, bits key) {
   text ^= key; // XOR с ключом
   // std::cout << "Text XOR key: " << text.to_string() << std::endl;
   std::vector<bits> splited_blocks{
-      text.cut(0, 3), text.cut(4, 7)};    // Разделяем текст на блоки пополам
+      text.cut(0, 3), text.cut(4, 7)}; // Разделяем текст на блоки пополам
   bits result = S_blocks(splited_blocks); // Находим числа по S-блокам
   // std::cout << "Text from S-blocks: " << result.to_string() << std::endl;
   result.mixing(P_block_straight); // Прямой S-блок
@@ -276,6 +279,10 @@ sdes::bits sdes::round(bits text, bits key) {
 }
 
 void sdes::print_crypt(std::initializer_list<bool> text) {
+  if (text.size() < 8) {
+    throw std::range_error("Слишком маленький текст");
+  }
+  current_round = 1;
   std::vector<bool> text_vec(text);
   bits text_bin(text_vec);
   std::cout << "Key: " << cypher_key.to_string() << std::endl;
@@ -297,6 +304,9 @@ void sdes::print_crypt(std::initializer_list<bool> text) {
 }
 
 void sdes::print_decrypt(std::initializer_list<bool> text) {
+  if (text.size() < 8) {
+    throw std::range_error("Слишком маленький текст");
+  }
   current_round = 1;
   std::vector<bool> text_vec(text);
   bits text_bin(text_vec);
